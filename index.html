@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Map of Collaborative Arctic Adaptation Projects</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Marker Cluster CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+        
+        .header {
+            flex-shrink: 0;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        
+        .map-wrapper {
+            flex: 1;
+            min-height: 0;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+            background-color: #e5f3ff;
+        }
+        
+        .theme-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 500;
+            margin: 1px;
+            color: white;
+        }
+        
+        .legend {
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            line-height: 1.4;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 2px 0;
+            font-size: 12px;
+        }
+        
+        .legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            margin-right: 6px;
+            border: 1px solid #ccc;
+        }
+        
+        .filter-control {
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .filter-control h4 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .filter-control label {
+            display: block;
+            margin: 4px 0;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        
+        .filter-control input {
+            margin-right: 6px;
+        }
+        
+        .popup-image {
+            max-width: 100%;
+            height: auto;
+            margin-bottom: 8px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-800 mb-1">
+                Collaborative Arctic Adaptation Projects
+            </h1>
+            <p class="text-sm text-gray-600">
+                Geographic overview from the Chapter 11 Scoping Review
+            </p>
+        </div>
+        
+        <div class="map-wrapper">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+    
+    <script>
+        // Wait for DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            
+            // Project data - combining original and new projects
+            const projects = [
+                // Original projects
+                {
+                    title: 'Nuna: Effective mitigation and adaptation to changing ground conditions',
+                    location: 'Tuktoyaktuk, NT, Canada',
+                    coords: [69.44, -133.04],
+                    themes: ['Permafrost', 'Coastal', 'Community Monitoring', 'Technology', 'Resilience']
+                },
+                {
+                    title: 'Riverbank erosion at the Yukon River, Galena, Alaska',
+                    location: 'Galena, Alaska, USA',
+                    coords: [64.74, -156.93],
+                    themes: ['Hydrology', 'Coastal Erosion']
+                },
+                {
+                    title: 'Coastal Erosion at Two Communities in the Yukon-Kuskokwim Delta, Alaska',
+                    location: 'Yukon-Kuskokwim Delta, AK, USA',
+                    coords: [61.0, -164.0],
+                    themes: ['Coastal Erosion']
+                },
+                {
+                    title: 'Counting what counts: using local knowledge to improve Arctic resource management',
+                    location: 'Disko Bay, Greenland',
+                    coords: [69.5, -52.0],
+                    themes: ['Community Monitoring', 'Knowledge Co-Production', 'Governance', 'Food Security']
+                },
+                {
+                    title: 'Climate change and community fisheries in the arctic: A case study from Pangnirtung, Canada',
+                    location: 'Pangnirtung, NU, Canada',
+                    coords: [66.15, -65.71],
+                    themes: ['Food Security', 'Knowledge Co-Production', 'Resilience', 'Governance']
+                },
+                {
+                    title: 'Mobilizing Inuit Knowledge as a Sea Ice Safety Adaptation Strategy in Mittimatalik, Nunavut',
+                    location: 'Mittimatalik (Pond Inlet), NU, Canada',
+                    coords: [72.70, -77.96],
+                    themes: ['Sea Ice', 'Knowledge Co-Production', 'Community Monitoring', 'Technology']
+                },
+                {
+                    title: 'Supporting Climate Adaptation Planning in Northwest Alaska',
+                    location: 'Northwest Alaska, USA',
+                    coords: [64.50, -165.41],
+                    themes: ['Governance', 'Resilience']
+                },
+                {
+                    title: 'Collaborative Analysis of Change and Coastal Community Subsistence Practices',
+                    location: 'Northern Bering & Chukchi Seas',
+                    coords: [66.0, -169.0],
+                    themes: ['Sea Ice', 'Food Security', 'Knowledge Co-Production', 'Resilience']
+                },
+                {
+                    title: 'Climate Change in Northern Quebec: Adaptation Strategies from Community-Based Research',
+                    location: 'Nunavik, QC, Canada',
+                    coords: [59.5, -73.0],
+                    themes: ['Resilience', 'Community Monitoring', 'Knowledge Co-Production']
+                },
+                {
+                    title: 'The snowscapes of the Sámi: a place of knowing',
+                    location: 'Sápmi Region (Northern Fennoscandia)',
+                    coords: [68.0, 24.0],
+                    themes: ['Knowledge Co-Production', 'Resilience']
+                },
+                {
+                    title: 'The Baffin Bay region: A case study of an Inuit-led adaptation strategy',
+                    location: 'Baffin Bay Region',
+                    coords: [73.0, -68.0],
+                    themes: ['Governance', 'Resilience', 'Sea Ice']
+                },
+                {
+                    title: 'Framework for community-based monitoring of arctic sea ice and weather',
+                    location: 'Utqiaġvik (Barrow), AK, USA',
+                    coords: [71.29, -156.79],
+                    themes: ['Community Monitoring', 'Sea Ice', 'Knowledge Co-Production']
+                },
+                {
+                    title: 'High-Arctic coastal erosion and cultural heritage implications',
+                    location: 'Canadian Arctic Archipelago',
+                    coords: [75.0, -95.0],
+                    themes: ['Coastal Erosion', 'Permafrost']
+                },
+                {
+                    title: 'Inuit and scientific perspectives on sea ice and climate change',
+                    location: 'Clyde River, NU, Canada',
+                    coords: [70.47, -68.59],
+                    themes: ['Sea Ice', 'Knowledge Co-Production', 'Community Monitoring']
+                },
+                {
+                    title: 'Co-production of knowledge story map about whaling and sea ice',
+                    location: 'Utqiaġvik (Barrow), AK, USA',
+                    coords: [71.29, -156.79],
+                    themes: ['Knowledge Co-Production', 'Technology', 'Governance']
+                },
+                {
+                    title: 'Social and cultural dimensions of sea ice in Rigolet, Nunatsiavut',
+                    location: 'Rigolet, NL, Canada',
+                    coords: [54.18, -58.43],
+                    themes: ['Sea Ice', 'Community Monitoring', 'Resilience']
+                },
+                {
+                    title: 'Climate change and the northern coast of Ellesmere Island',
+                    location: 'Ward Hunt Island, NU, Canada',
+                    coords: [83.10, -74.14],
+                    themes: ['Sea Ice', 'Hydrology', 'Permafrost']
+                },
+                
+                // New projects from spreadsheet
+                {
+                    title: 'Alaskan Inuit Food Security Conceptual Framework',
+                    location: 'Alaska, USA',
+                    coords: [64.0, -150.0],
+                    themes: ['Food Security', 'Governance', 'Knowledge Co-Production'],
+                    description: 'Developing frameworks to assess food security from an Inuit perspective.'
+                },
+                {
+                    title: 'Bering Sea Sub-Network (BSSN)',
+                    location: 'Bering Sea',
+                    coords: [60.0, -170.0],
+                    themes: ['Community Monitoring', 'Technology', 'Knowledge Co-Production'],
+                    description: 'Community-based monitoring network for environmental changes.'
+                },
+                {
+                    title: 'Community-Based Monitoring Network (CBMN)',
+                    location: 'Nunavut, Canada',
+                    coords: [70.0, -90.0],
+                    themes: ['Community Monitoring', 'Knowledge Co-Production'],
+                    description: 'Wildlife monitoring network across Nunavut communities.'
+                },
+                {
+                    title: 'EALÁT: Reindeer Herders\' Vulnerability Network Study',
+                    location: 'Sápmi Region',
+                    coords: [68.0, 24.0],
+                    themes: ['Knowledge Co-Production', 'Resilience', 'Food Security'],
+                    description: 'Studying climate impacts on reindeer herding practices.'
+                },
+                {
+                    title: 'Kangiqtugaapik Weather Station Network',
+                    location: 'Clyde River, NU, Canada',
+                    coords: [70.47, -68.59],
+                    themes: ['Community Monitoring', 'Technology', 'Knowledge Co-Production'],
+                    description: 'Community-based weather monitoring network.'
+                },
+                {
+                    title: 'Local Environmental Observer (LEO) Network',
+                    location: 'Alaska, USA',
+                    coords: [64.0, -150.0],
+                    themes: ['Community Monitoring', 'Knowledge Co-Production'],
+                    description: 'Network for documenting local environmental observations.'
+                },
+                {
+                    title: 'SIZONet Community Sea Ice Observing Network',
+                    location: 'Alaska, USA',
+                    coords: [64.0, -150.0],
+                    themes: ['Sea Ice', 'Community Monitoring', 'Knowledge Co-Production'],
+                    description: 'Community-based sea ice observation network.'
+                },
+                {
+                    title: 'Sea Ice for Walrus Outlook (SIWO)',
+                    location: 'Bering Sea',
+                    coords: [60.0, -170.0],
+                    themes: ['Sea Ice', 'Food Security', 'Knowledge Co-Production'],
+                    description: 'Providing sea ice information for walrus subsistence hunting.'
+                },
+                {
+                    title: 'The Arctic Rivers Project',
+                    location: 'Yukon River Basin',
+                    coords: [65.0, -140.0],
+                    themes: ['Hydrology', 'Community Monitoring', 'Knowledge Co-Production'],
+                    description: 'Understanding climate impacts on Arctic rivers.'
+                },
+                {
+                    title: 'Yukon River Basin Indigenous Observation Network',
+                    location: 'Yukon River Basin',
+                    coords: [65.0, -140.0],
+                    themes: ['Hydrology', 'Community Monitoring', 'Knowledge Co-Production'],
+                    description: 'Integrating traditional knowledge for water resource management.'
+                },
+                {
+                    title: 'Traditional Knowledge of Beluga Whales',
+                    location: 'Chukchi and Bering Seas',
+                    coords: [66.0, -169.0],
+                    themes: ['Knowledge Co-Production', 'Community Monitoring'],
+                    description: 'Documenting traditional knowledge about beluga whales.'
+                },
+                {
+                    title: 'Marine Arctic Resilience Project',
+                    location: 'Marine Arctic',
+                    coords: [75.0, -45.0],
+                    themes: ['Resilience', 'Governance'],
+                    description: 'Studying marine Arctic resilience through international collaboration.'
+                },
+                {
+                    title: 'Sikumiut: Utqiagvik Sea Ice Field School',
+                    location: 'Utqiaġvik, AK, USA',
+                    coords: [71.29, -156.79],
+                    themes: ['Sea Ice', 'Knowledge Co-Production', 'Education'],
+                    description: 'Field school integrating local knowledge and science about sea ice.'
+                }
+            ];
+
+            // Theme colors
+            const themeColors = {
+                'Permafrost': '#8B4513',
+                'Coastal': '#4682B4',
+                'Community Monitoring': '#228B22',
+                'Technology': '#8A2BE2',
+                'Resilience': '#FFD700',
+                'Hydrology': '#1E90FF',
+                'Coastal Erosion': '#D2691E',
+                'Knowledge Co-Production': '#DA70D6',
+                'Governance': '#6A5ACD',
+                'Food Security': '#2E8B57',
+                'Sea Ice': '#87CEEB',
+                'Education': '#FF6347' // Added for new education-themed projects
+            };
+
+            // Initialize map
+            const map = L.map('map', {
+                center: [70, -100],
+                zoom: 3,
+                minZoom: 2,
+                maxZoom: 10
+            });
+
+            // Add base layers
+            const baseLayers = {
+                "Street Map": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors',
+                    maxZoom: 18
+                }).addTo(map), // Add this as default
+                "Satellite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: 'Tiles © Esri',
+                    maxZoom: 18
+                }),
+                "Topographic": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                    attribution: 'Map data: © OpenStreetMap contributors',
+                    maxZoom: 17
+                })
+            };
+
+            // Create marker cluster group
+            const markers = L.markerClusterGroup({
+                spiderfyOnMaxZoom: true,
+                showCoverageOnHover: false,
+                zoomToBoundsOnClick: true,
+                maxClusterRadius: 60
+            });
+
+            // Create layer group for all markers (for filtering)
+            const allMarkers = L.layerGroup();
+            
+            // Function to create markers
+            function createMarkers() {
+                projects.forEach(function(project) {
+                    const primaryTheme = project.themes[0];
+                    const color = themeColors[primaryTheme] || '#666';
+                    
+                    const marker = L.circleMarker([project.coords[0], project.coords[1]], {
+                        radius: 8,
+                        fillColor: color,
+                        color: '#fff',
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.7
+                    });
+                    
+                    // Store themes as property for filtering
+                    marker.themes = project.themes;
+                    
+                    // Create popup content
+                    let themesHtml = '';
+                    project.themes.forEach(function(theme) {
+                        const themeColor = themeColors[theme] || '#666';
+                        const textColor = (theme === 'Resilience' || theme === 'Sea Ice') ? '#333' : '#fff';
+                        themesHtml += '<span class="theme-badge" style="background-color: ' + themeColor + '; color: ' + textColor + ';">' + theme + '</span>';
+                    });
+
+                    const popupContent = 
+                        '<div style="max-width: 280px;">' +
+                        '<h3 style="font-weight: bold; margin: 0 0 8px 0; font-size: 14px;">' + project.title + '</h3>' +
+                        '<p style="margin: 0 0 8px 0; color: #666; font-size: 12px;"><strong>Location:</strong> ' + project.location + '</p>' +
+                        (project.description ? '<p style="margin: 0 0 8px 0; font-size: 12px;">' + project.description + '</p>' : '') +
+                        '<div style="border-top: 1px solid #eee; padding-top: 8px;">' +
+                        '<div style="font-size: 12px; font-weight: bold; margin-bottom: 4px;">Themes:</div>' +
+                        themesHtml +
+                        '</div>' +
+                        '</div>';
+                    
+                    marker.bindPopup(popupContent);
+                    allMarkers.addLayer(marker);
+                });
+                
+                // Add all markers to cluster group
+                markers.addLayer(allMarkers);
+                map.addLayer(markers);
+            }
+
+            // Create legend
+            const legend = L.control({ position: 'bottomright' });
+            legend.onAdd = function(map) {
+                const div = L.DomUtil.create('div', 'legend');
+                div.innerHTML = '<div style="font-weight: bold; margin-bottom: 6px; font-size: 13px;">Project Themes</div>';
+                
+                Object.keys(themeColors).forEach(function(theme) {
+                    const color = themeColors[theme];
+                    div.innerHTML += 
+                        '<div class="legend-item">' +
+                        '<div class="legend-color" style="background-color: ' + color + ';"></div>' +
+                        '<span>' + theme + '</span>' +
+                        '</div>';
+                });
+                
+                return div;
+            };
+
+            // Create theme filter control
+            const filterControl = L.control({ position: 'topright' });
+            filterControl.onAdd = function(map) {
+                const div = L.DomUtil.create('div', 'filter-control');
+                div.innerHTML = '<h4>Filter by Theme</h4>';
+                
+                // Add "Select All" button
+                div.innerHTML += '<button id="select-all" style="font-size: 12px; margin-bottom: 8px; background: #f0f0f0; border: 1px solid #ccc; padding: 2px 6px; border-radius: 3px;">Select All</button>';
+                
+                Object.keys(themeColors).forEach(function(theme) {
+                    div.innerHTML += 
+                        '<label>' +
+                        '<input type="checkbox" class="theme-filter" checked value="' + theme + '"> ' + theme +
+                        '</label><br>';
+                });
+                
+                return div;
+            };
+
+            // Function to filter markers by theme
+            function filterMarkers() {
+                const checkedThemes = [];
+                document.querySelectorAll('.theme-filter:checked').forEach(function(checkbox) {
+                    checkedThemes.push(checkbox.value);
+                });
+                
+                // Clear existing markers
+                markers.clearLayers();
+                
+                if (checkedThemes.length === 0) {
+                    // If no themes selected, show nothing
+                    return;
+                }
+                
+                // Create a new layer group for filtered markers
+                const filteredMarkers = L.layerGroup();
+                
+                allMarkers.eachLayer(function(marker) {
+                    let showMarker = false;
+                    
+                    // Check if marker has any of the selected themes
+                    marker.themes.forEach(function(theme) {
+                        if (checkedThemes.includes(theme)) {
+                            showMarker = true;
+                        }
+                    });
+                    
+                    if (showMarker) {
+                        filteredMarkers.addLayer(marker);
+                    }
+                });
+                
+                // Add filtered markers to cluster group
+                markers.addLayer(filteredMarkers);
+                map.addLayer(markers);
+                
+                // Fit bounds to show all filtered markers
+                if (filteredMarkers.getLayers().length > 0) {
+                    map.fitBounds(filteredMarkers.getBounds(), { padding: [20, 20] });
+                }
+            }
+
+            // Initialize the map components
+            function initMap() {
+                // Create markers
+                createMarkers();
+                
+                // Add controls
+                legend.addTo(map);
+                filterControl.addTo(map);
+                
+                // Add layer control
+                L.control.layers(baseLayers).addTo(map);
+                
+                // Add event listeners for filtering
+                document.querySelectorAll('.theme-filter').forEach(function(checkbox) {
+                    checkbox.addEventListener('change', filterMarkers);
+                });
+                
+                // Add select all button functionality
+                document.getElementById('select-all')?.addEventListener('click', function() {
+                    const checkboxes = document.querySelectorAll('.theme-filter');
+                    const allChecked = Array.from(checkboxes).every(checkbox => checkbox.checked);
+                    
+                    checkboxes.forEach(function(checkbox) {
+                        checkbox.checked = !allChecked;
+                    });
+                    
+                    filterMarkers();
+                });
+                
+                // Fit bounds to show all markers
+                if (allMarkers.getLayers().length > 0) {
+                    map.fitBounds(allMarkers.getBounds(), { padding: [20, 20] });
+                }
+                
+                // Force map to recognize its size
+                setTimeout(function() {
+                    map.invalidateSize();
+                }, 100);
+            }
+
+            // Initialize the map
+            initMap();
+        });
+    </script>
+</body>
+</html>
